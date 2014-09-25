@@ -425,16 +425,12 @@ class Indexer implements Runnable {
      * @param ref
      * @return
      */
-//    private Map<String, Object> convertDbRef(DBRef ref) {
-//        Map<String, Object> obj = new HashMap<String, Object>();
-//        obj.put("id", ref.getId());
-//        obj.put("ref", ref.getRef());
-//
-//        return obj;
-//    }
-
     private Map<String, Object> convertDbRef(DBRef ref) {
-        return createObjectMap(ref.fetch());
+        DBObject dbObject = ref.fetch();
+        if(dbObject == null){
+            dbObject = ref.getDB().getMongo().getDB(definition.getMongoDb()).getCollection(ref.getRef()).findOne(new BasicDBObject("_id", ref.getId()));
+        }
+        return createObjectMap(dbObject);
     }
 
     private boolean hasScript() {
