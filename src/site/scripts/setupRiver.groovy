@@ -29,7 +29,7 @@ import groovy.json.JsonBuilder
 run(args)
 
 /**
- * Main method, allows us to write stubbed tests
+ * Run/Main method
  */
 void run(args) {
     init(args)
