@@ -14,12 +14,13 @@ import groovy.json.JsonBuilder
 
 //These can change from env to env
 @Field def esHost = "localhost"
-@Field def mongoPort
-@Field def mongoDb
-@Field def mongoAuthDb = "local"
 
-//These shouldn't change from one env to another
+//Set these based on the mongoInstance arg
 @Field def mongoServers
+@Field def mongoDb
+
+//These shouldn't change from env to env
+@Field def mongoAuthDb = "local"
 @Field def oplogDb = "local"
 @Field def oplogUser = "oplog"
 @Field def oplogPass = "weReadOpl0gs"
@@ -52,38 +53,35 @@ void init(args) {
 
 void parseArgs(args) {
     println "parsing the command line args"
-    def cli = new CliBuilder(usage: 'groovy setupRiver.groovy [-h] -mp MONGO_PORT -md MONGO_DB -ma [MONGO_AUTH_DB] -eh [ES_HOST] ')
+    def cli = new CliBuilder(usage: 'groovy setupRiver.groovy [-h] -mi [prod|dev] -eh [ES_HOST] ')
     cli.h(longOpt: 'help', 'usage information', required: false)
-    cli.mp(longOpt: 'mongoPort', 'mongo port for the VIP server connection e.g. 30930 (dev) or 31208 (prod)', required: true, args: 1)
-    cli.md(longOpt: 'mongoDb', 'the mongo db housing the collections e.g. productcatalog_stage', required: true, args: 1)
-    cli.ma(longOpt: 'mongoAuthDb', 'the mongo db that we should authenticate against, defaults to local if not specified', required: false, args: 1)
+    cli.mi(longOpt: 'mongoInstance', 'must be set to prod or dev, if prod we read from instance01 productcatalog_prod if dev instance01Dev productcatalog_stage', required: true, args: 1)
     cli.eh(longOpt: 'esHost', 'The elastic search host, e.g. es.s.rtrdc.net, defaults to localhost if not specified', required: false, args: 1)
     def opt = cli.parse(args)
-    if (!opt) {
-        return
-    }
-    if (opt.h || !opt.arguments().isEmpty()) {
+
+    if (!opt || opt.h || !opt.arguments().isEmpty() || (!opt.mi.equals("prod") && !opt.mi.equals("dev"))) {
         cli.usage()
-        return
+        System.exit(0)
     }
-    if (opt.mp) {
-        mongoPort = opt.mp
-    }
-    if (opt.md) {
-        mongoDb = opt.md
-    }
-    if (opt.ma) {
-        mongoAuthDb = opt.ma
+    if (opt.mi.equals("prod")) {
+        mongoDb = "productcatalog_prod"
+        mongoServers = [
+                [host: "dfwclus5br0vz9.dfw.objectrocket.com", port: "31208"],
+                [host: "dfwclus5br1vz9.dfw.objectrocket.com", port: "31208"],
+                [host: "dfwclus5br2vz9.dfw.objectrocket.com", port: "31208"]
+        ]
+
+    } else {
+        mongoDb = "productcatalog_stage"
+        mongoServers = [
+                [host: "dfwclus0br0vz11.dfw.objectrocket.com", port: "30930"],
+                [host: "dfwclus0br1vz11.dfw.objectrocket.com", port: "30930"],
+                [host: "dfwclus0br2vz11.dfw.objectrocket.com", port: "30930"]
+        ]
     }
     if (opt.eh) {
         esHost = opt.eh
     }
-
-    mongoServers = [
-            [host: "98.129.8.160", port: "${mongoPort}"],
-            [host: "98.129.8.161", port: "${mongoPort}"],
-            [host: "98.129.8.162", port: "${mongoPort}"]
-    ]
 }
 
 /**
@@ -113,7 +111,7 @@ void createCatalogIndex() {
             body: getJsonForCatalogIndex(),
             requestContentType: JSON
     )
-    assert(resp.status == 200)
+    assert (resp.status == 200)
 }
 
 /**
